@@ -1,0 +1,82 @@
+#!/bin/sh
+# Set desired PHP_FCGI_* environment variables.
+# Example:
+# PHP FastCGI processes exit after 500 requests by default. This should be higher than the number of requests that apache sends to the processes
+PHP_FCGI_MAX_REQUESTS=15000
+export PHP_FCGI_MAX_REQUESTS
+
+#If using fcgi (Recomended) this must be set to 0 if using fastcgi server (Not recomneded) this can be set to the number of children you want
+PHP_FCGI_CHILDREN=0
+export PHP_FCGI_CHILDREN
+
+#ENVIROMENT MASKING
+SERVER_SOFTWARE='Web Server'
+export SERVER_SOFTWARE
+
+PHPCGI="/usr/bin/php-cgi"
+INSTALL_DIR="/var/www/healthcheck"
+SESSION_NAME="healthcheck_b4by"
+
+
+PHP_SECURITY_OPTIONS_DISABLED_FUNCTIONS="system,exec,passthru,shell_exec,proc_open,show_source,popen,pcntl_fork,pcntl_exec,escapeshellarg,escapeshellcmd,openlog,closelog,uname,php_uname"
+
+PHP_SITE_OPTIONS_MAX_UPLOAD_FILESIZE="24M"
+PHP_SITE_OPTIONS_MAX_POST_SIZE="32M"
+PHP_SITE_OPTIONS_MEMORY_LIMIT="128M"
+PHP_SITE_OPTIONS_REGISTER_GLOBALS="no"
+
+PHP_SECURITY_OPTIONS="-d disable_functions=${PHP_SECURITY_OPTIONS_DISABLED_FUNCTIONS}
+                      -d expose_php=off 
+                      -d display_errors=on 
+                      -d allow_url_fopen=off 
+                      -d magic_quotes_sybase=off 
+                      -d magic_quotes_gpc=off"
+
+
+PHP_SITE_OPTIONS="-d memory_limit=${PHP_SITE_OPTIONS_MEMORY_LIMIT}
+                -d file_uploads=Off
+                -d upload_max_filesize=${PHP_SITE_OPTIONS_MAX_UPLOAD_FILESIZE} 
+                -d post_max_size=${PHP_SITE_OPTIONS_MAX_POST_SIZE} 
+                -d expose_php=off 
+                -d mysqli.reconnect=on
+                -d register_globals=${PHP_SITE_OPTIONS_REGISTER_GLOBALS}
+                -d mbstring.language=Neutral
+                -d mbstring.internal_encoding=UTF-8
+                -d mbstring.encoding_translation=On
+                -d mbstring.http_input=auto
+                -d mbstring.http_output=UTF-8
+                -d mbstring.detect_order=auto
+                -d mbstring.substitute_character=none
+                -d default_charset=UTF-8"
+
+
+PHP_SESSION_OPTIONS_HASH_FUNCTION="sha2"
+PHP_SESSION_OPTIONS="-d session.save_handler=memcache
+                     -d session.save_path=tcp://memcached-server:11211?persistent=1&weight=1&timeout=1&retry_interval=15
+                     -d session.name=${SESSION_NAME} 
+                     -d session.hash_function=${PHP_SESSION_OPTIONS_HASH_FUNCTION}
+                     -d session.hash_bits_per_character=5"
+
+PHP_ERROR_LOG="-d error_log=${INSTALL_DIR}/logs/php_log
+               -d log_errors=on
+               -d error_reporting='E_ALL'"
+
+PHP_UPLOAD_DIR="-d upload_tmp_dir=${INSTALL_DIR}/tmp"
+PHP_INCLUDE_PATH="-d include_path=${INSTALL_DIR}/conf"
+
+PHP_OPTIONAL_BASEDIR=":/usr/share/phpMyAdmin/:/usr/share/php/:/var/www/mysite/"
+PHP_OPEN_BASEDIR="-d open_basedir=${INSTALL_DIR}/${PHP_OPTIONAL_BASEDIR}"
+
+
+TMP=${INSTALL_DIR}/var/tmp
+TEMP=${TMP}
+TMPDIR=${TMP}
+
+export TMP
+export TEMP
+export TMPDIR
+export REDIRECT_STATUS=200
+
+# Replace with the path to your FastCGI-enabled PHP executable
+exec nice -n 15 ${PHPCGI} ${PHP_OPEN_BASEDIR} ${PHP_SECURITY_OPTIONS} ${PHP_INCLUDE_PATH} ${PHP_UPLOAD_DIR} ${PHP_SITE_OPTIONS} ${PHP_SESSION_OPTIONS} ${PHP_ERROR_LOG}
+
